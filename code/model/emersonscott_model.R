@@ -21,7 +21,7 @@ RunSimulation = function(behavior = 'consistent',n_issues = 50,n_pieces = 30,bot
   trueValues = runif(n = n_issues,min = 0,max = 10)
   n_agents = length(create_agents())
   agentIncentive = runif(n_agents,min = bottomIncentive,max = topIncentive)
-  infoFull = do.call(cbind,sapply(seq_along(trueValues),function(x) rnorm(n = en_pieces,mean = trueValues[x],sd = 0.1),simplify = F))
+  infoFull = do.call(cbind,sapply(seq_along(trueValues),function(x) rnorm(n = n_pieces,mean = trueValues[x],sd = 0.1),simplify = F))
   infoPieces = replicate(n_agents,create_agent_information_matrix(values = infoFull,min_keep = keep_pieces_min,max_keep =keep_pieces_max),simplify = F)
   agentInfoDistortion = agentIncentive
   #CI_i = I_i * 1/sqrt(S_i)
