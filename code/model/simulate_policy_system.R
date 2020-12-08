@@ -8,7 +8,7 @@ library(ggraph)
 require(Matrix)
 require(purrr)
 require(tidyverse)
-
+lsa::cosine()
 #specify working parameters
 n_agents = 40
 n_issues = 100

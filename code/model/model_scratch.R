@@ -1,4 +1,9 @@
-source('code/model/functions.R')
+packs = c('data.table','tidyverse')
+need = packs[!packs %in% installed.packages()[,'Package']]
+lapply(need,install.packages)
+lapply(packs,require,character.only = T)
+
+source('code/model/emersonscott_model.R')
 create_agents = function(convenors=0, regulators=0,stakeholders=10){
 return(c(rep('convener',convenors),
            rep('regulator',regulators),
@@ -20,7 +25,7 @@ b3 = data.table(variance='small',avg = c('low','medium','high'),
                 max = c(0.4,0.55,0.7))
 inputs = full_join(b1,rbind(b2,b3),by = character())
 
-inputs
+
 require(tidyverse)
 require(pbapply)
 results = pblapply(rep(1:nrow(inputs),each = 1000),function(y){
@@ -30,7 +35,11 @@ bottomIncentive = inputs$min[y],
 topIncentive = inputs$max[y],
 n_issues = 50,
 n_pieces = 30,
-stakeholders = 0,regulators = 10,study_phase = FALSE)},cl = 6)
+stakeholders = 0,regulators = 10,study_phase = FALSE)},cl = 1)
+
+
+
+
 
 
 resdt = inputs[rep(1:nrow(inputs),each = 1000),]
