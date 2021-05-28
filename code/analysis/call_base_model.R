@@ -7,7 +7,7 @@ require(doParallel)
 
 cores = floor(detectCores() / 1.2)
 cl = makeCluster(cores)
-reps = 2e4
+reps = 1000
 registerDoParallel(cl)
 
 clusterEvalQ(cl,expr =  source('code/model/emersonscott_model.R'))
@@ -28,7 +28,7 @@ res = foreach(i = 1:reps) %dopar% {
   tryCatch({EmersonScottModel(simulation.control = simulation.control)},error = function(e) NULL)
 }
 
-saveRDS(res,paste0('../bucket_mount/verde_scratch/baserun.',reps/1e3,'k.RDS'))
+saveRDS(res,paste0('../bucket_mount/verde_scratch/test_baserun.',reps/1e3,'k.RDS'))
 rm(res);gc()
 stopCluster(cl)
 
