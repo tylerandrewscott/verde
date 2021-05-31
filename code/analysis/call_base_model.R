@@ -1,7 +1,7 @@
 
 
 require(pbapply)
-source('code/model/emersonscott_model.R')
+source('code/model/emersonscott_model_3skill.R')
 require(parallel)
 require(doParallel)
 
@@ -16,7 +16,7 @@ incentive.set = list(c(0.1,0.5),c(0.3,0.7),c(0.5,0.9),c(0.1,0.9))
 
 res = foreach(i = 1:reps) %dopar% {
   simulation.control = list(stakeholders = 50,regulators = 0, convenors = 0 ,
-                            incentive.set = sample(incentive.set,1)[[1]],
+                            incentive.set = sample(incentive.set,1)[[4]],
                             uncertainty = runif(1,min = 0.25,2.25), 
                             n_pieces = 1,
                             min.payout = 0,
