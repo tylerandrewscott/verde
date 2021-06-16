@@ -1,10 +1,33 @@
 
 list.files('../bucket_mount/verde_scratch/')
-base = readRDS('../bucket_mount/verde_scratch/baserun.20k.RDS')
+base = readRDS('scratch/test_baserun.50reps.RDS')
 #base = c(base1,base2)
-
+require(tidyverse)
 require(data.table)
 base = base[sapply(base,class)=='list']
+
+
+dyn_list = lapply(base,'[[','dynamics')
+dyn_dt_list = lapply(dyn_list,as.data.table)
+quietly(lapply(seq_along(dyn_dt_list),function(x) {dyn_dt_list[[x]]$i <<- x; dyn_dt_list[[x]]$t <<- 1:nrow(dyn_dt_list[[x]])}))
+
+dyn_dt = rbindlist(dyn_dt_list)
+
+ggplot(data = dyn_dt) + 
+#  geom_path(aes(x = t,y = principled.engagement,group = i),lwd = 0.2,alpha = 0.5) 
+
+ #geom_path(aes(x = t,y = issue.alignment,group = i),lwd = 0.2,alpha = 0.5) 
+#  geom_path(aes(x = t,y = capacity.for.joint.action,group = i),lwd = 0.2,alpha = 0.5)
+geom_path(aes(x = t,y = shared.motivation,group = i),lwd = 0.2,alpha = 0.5)
+
+ggplot() + geom_path(aes(x = seq_along(base[[1]]$dynamics$principled.engagement),
+                         y = base[[1]]$dynamics$principled.engagement))
+
+ggplot() + geom_path(aes(x = seq_along(base[[1]]$dynamics$shared.motivation),y = base[[1]]$dynamics$principled.engagement))
+ggplot() + geom_path(aes(x = seq_along(base[[1]]$dynamics$shared.motivation),y = base[[1]]$dynamics$shared.motivation))
+ggplot() + geom_path(aes(x = seq_along(base[[1]]$dynamics$shared.motivation),y = base[[1]]$dynamics$capacity.for.joint.action))
+
+
 
 mults = lapply(base,'[[','payoffs')
 issues = lapply(lapply(base,'[[','cgr'),'[[','issues')
@@ -25,11 +48,10 @@ dt = data.table(total.payoff = sapply(lapply(base,'[[','cgr.payout.t'),sum),
                 agents = unlist(sapply(agents,length)),issues =  unlist(sapply(issues,length)))
 dt$id = 1:nrow(dt)                          
 
-
 #colnames(dt) <- c('benefits','sd(starting info)','median(issue multiplier)','mean(starting motivation)',
 #                  '# agents in CGR','# issues in CGR','id')
 
-dtl = melt(dt,id.vars = c('id','total.payoff','final.payoff'))
+dtl = melt.data.table(dt,id.vars = c('id','total.payoff','final.payoff'))
 
 require(tidyverse)
 ggplot(dtl[variable%in%c('issues','agents'),],aes(x = value,y = log(total.payoff),group = value)) + 
@@ -67,8 +89,9 @@ dyn_all$cgr.payout = unlist(lapply(base,'[[','cgr.payout.t'))
 dyn_all$total.payout = rep(sapply(lapply(base,'[[','cgr.payout.t'),sum), each = sapply(lapply(base,'[[','cgr.payout.t'),length))
 dyn_all$iter = rep(1:length(base),each =length(base[[1]]$cgr.payout.t))
 
-dyn_melt = melt(dyn_all,id.vars = c('total.payout','cgr.payout','t','iter'))
-     
+dyn_melt = melt.data.table(dyn_all,id.vars = c('total.payout','cgr.payout','t','iter'))
+
+dyn_melt
 ggplot(dyn_melt[t==1,],aes(x = value,y = log(total.payout))) +  
   geom_point(pch = 21,alpha = 0.2) + 
   facet_wrap(~variable,ncol = 2,scales = 'free') + 
@@ -86,7 +109,6 @@ ggplot(dyn_melt[,mean(value),by=.(variable,iter,total.payout)],aes(x = V1,y = lo
   stat_smooth(fullrange = F)
 
 
-
 dyn.avg = dyn_all[,list(mean(principled.engagement),
               mean(capacity.for.joint.action),
               mean(shared.motivation)),by=.(iter,total.payout)]
@@ -95,15 +117,17 @@ setnames(dyn.avg,c('V1','V2','V3'),c('principled.engagement','capacity.for.joint
 
 library(GGally)
 library(lemon)
+require(gridExtra)
 g = ggplot(dyn.avg,aes(col = log(total.payout))) + theme_bw() + 
-  scale_color_viridis_c(option = 'C',direction = -1) + scale_y_continuous(limits = c(0,1)) +
-  scale_x_continuous(limits = c(0,1))
+  scale_color_viridis_c(option = 'C',direction = -1) 
+  #scale_y_continuous(limits = c(0,1)) +
+  #scale_x_continuous(limits = c(0,1))
 
-g1 = g + geom_point(aes(x = principled.engagement,y = capacity.for.joint.action),
+g1 = g + geom_point(aes(x = -principled.engagement,y = capacity.for.joint.action),
           pch = 21,alpha = 0.75) 
 legend <- g_legend(g1 + theme(legend.direction = 'horizontal'))
 
-g2 = g + geom_point(aes(x = principled.engagement,y = shared.motivation),
+g2 = g + geom_point(aes(x = -principled.engagement,y = shared.motivation),
                     pch = 21,alpha = 0.75) 
 g3 = g + geom_point(aes(x = shared.motivation,y = capacity.for.joint.action),
                     pch = 21,alpha = 0.75) 
@@ -122,8 +146,10 @@ setnames(dyn.avg,c('V1','V2','V3'),c('principled.engagement','capacity.for.joint
 
 
 g = ggplot(dyn_all[t==1,],aes(col = log(total.payout))) + theme_bw() + 
-  scale_color_viridis_c(option = 'C',direction = -1) + scale_y_continuous(limits = c(0,1)) +
-  scale_x_continuous(limits = c(0,1))
+  scale_color_viridis_c(option = 'C',direction = -1) + 
+  #scale_y_continuous(limits = c(0,1)) +
+ # scale_x_continuous(limits = c(0,1)) +
+  NULL
 
 g1 = g + geom_point(aes(x = principled.engagement,y = capacity.for.joint.action),
                     pch = 21,alpha = 0.75) 
@@ -224,7 +250,9 @@ layout(fig2,
                       
                            
 colorscale = viridis_pal(option = "D")(3)))
-       fig2
+       
+
+fig2
                
                color = ~log(cgr.payout),colors = viridis_pal(option = "C")(3))
 

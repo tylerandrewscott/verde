@@ -15,13 +15,15 @@ if(run_base){
 res = foreach(i = 1:reps) %dopar% {
   source('code/model/emersonscott_model.R')
   simulation.control = list(stakeholders = 50,regulators = 0, convenors = 0 ,
-                            bottom.incentive = runif(1,0.1,0.5),
-                            top.incentive = runif(1,0.5,0.9),
-                            uncertainty = runif(1,min = 0.25,1.75), 
+                            motivation.set =sort(runif(2,0.1,0.9)),
+                            skill.set = sort(runif(2,0.1,0.9)),
+                            capacity.set = sort(runif(2,0.1,0.9)),
+                            uncertainty = runif(1,min = 0.25,2.25), 
                             n_pieces = 1,
                             min.payout = 0,
                             max.payout = 10,n_issues = 100,
                             number.of.issues.to.join = 2,
+                            beta = 0.9,alpha = 0.1, 
                             t = 50,perturb.time = 15,perturb.type = NULL,
                             CGselector='betweenness',behavior = "consistent")
   EmersonScottModel(simulation.control = simulation.control)}

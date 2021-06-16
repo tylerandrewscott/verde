@@ -1,12 +1,12 @@
 
-packs = c('data.table','tidyverse','lsa','statnet','igraph','multinets','tidygraph','intergraph','tidyr')
+packs = c('data.table','tidyverse','lsa','statnet','igraph','multinets','tidygraph','intergraph','tidyr','reshape2')
 need = packs[!packs %in% installed.packages()[,'Package']]
 lapply(need,install.packages)
 lapply(packs,require,character.only = T)
 
 simulation.control = list(stakeholders = 50,regulators = 0, convenors = 0 ,
-                          incentive.set = c(0.1,0.9),
-                          uncertainty = runif(1,min = 0.25,1.75), 
+                          incentive.range = runif(n = 1,min = 0.1,max = 0.9),
+                          uncertainty = runif(n = 1,min = 0.25,max = 1.75), 
                           n_pieces = 1,beta = 0.9,alpha = 0.1, 
                           min.payout = 0,
                           max.payout = 10,n_issues = 100,
@@ -21,7 +21,7 @@ createAgents = function(simulation.control) {c(rep('stakeholders',simulation.con
                                                rep('regulators',simulation.control$regulators),
                                                rep('convenors',simulation.control$convenors))}
 createIssues = function(simulation.control) {runif(n = simulation.control$n_issues,min = simulation.control$min.payout,max = simulation.control$max.payout)}
-createMotivation = function(simulation.control,agents) {runif(length(agents), simulation.control$incentive.set[1],simulation.control$incentive.set[2])}
+createAttribute = function(simulation.control,agents,skill) {temp = rnorm(n = length(agents),mean = simulation.control[[skill]],sd = 0.1);temp[temp<=0.01]<-0.01;temp[temp>=0.99]<-0.99;return(temp)}
 
 
 createAgentInformationMatrix = function(payoffs =true.values,ag = agents,
@@ -52,7 +52,7 @@ EmersonScottModel = function(simulation.control = NULL,debug = F) {
   #### actions for 3.1 #######
   agents = createAgents(simulation.control = simulation.control)
   true.values = createIssues(simulation.control = simulation.control )
-  agent.motivation = createMotivation(simulation.control = simulation.control,agents = agents)
+  agent.motivation = createAttribute(simulation.control = simulation.control,agents = agents,skill = 'incentive.range')
   
   agent.issue.incidence.matrix = matrix(0+(runif(simulation.control$n_issues*length(agents))>0.75),ncol = simulation.control$n_issues)
   issue.homophily <- lsa::cosine(t(agent.issue.incidence.matrix))
@@ -88,38 +88,51 @@ EmersonScottModel = function(simulation.control = NULL,debug = F) {
   ###### 3.2 Running the Policy System ######
   ##### functions for 3.2 ######
   
-  joint.action.matrix = principled.engagement.matrix = shared.info.matrix = private.info.matrix = issue.matrix = incentive.matrix = contrib.matrix = orig.contrib.matrix = payout.matrix = orig.payout.matrix = reciprocity.matrix  = array(NA,dim = list(length(agents),length(true.values),simulation.control$t))
+  #joint.action.matrix = principled.engagement.matrix = 
+  agent.best.guesses = shared.info.matrix = private.info.matrix = issue.matrix = incentive.matrix = contrib.matrix = orig.contrib.matrix = payout.matrix = orig.payout.matrix = reciprocity.matrix  = array(NA,dim = list(length(agents),length(true.values),simulation.control$t))
   contributors.matrix = array(NA,dim = list(1,length(true.values),simulation.control$t))
-  incentive.matrix[,,1] = joint.action.matrix[,,1] = principled.engagement.matrix[,,1] = agent.motivation
+  incentive.matrix[,,1] = agent.motivation
   issue.matrix[,,1] <- agent.issue.incidence.matrix
+#  joint.action.matrix[,,1] = principled.engagement.matrix[,,1] = 
+  dynamics.tracker = list('principled.engagement'=NULL,'capacity.for.joint.action'=NULL,'shared.motivation'=NULL,'issue.alignment'=NULL)
+  info.pieces = replicate(length(agents),createAgentInformationMatrix(payoffs =true.values,ag = agents,
+                                                                      u = simulation.control$uncertainty,
+                                                                      n_pieces = simulation.control$n_pieces),simplify = F)
   
-  dynamics.tracker = list('principled.engagement'=NULL,'capacity.for.joint.action'=NULL,'shared.motivation'=NULL)
+  #cgr.info.list = list()
 
   
  for(t in 1:simulation.control$t){
+
+   
+   true.matrix = matrix(true.values,nrow = length(agents),ncol = simulation.control$n_issues,byrow = T)
     #print(t)
     ### 3.2.1 Agents share information #### 
-    
-    info.pieces = replicate(length(agents),createAgentInformationMatrix(payoffs =true.values,ag = agents,
-                                                                        u = simulation.control$uncertainty,
-                                                                        n_pieces = simulation.control$n_pieces),simplify = F)
-    private.info.matrix[,,t]<- do.call(rbind,info.pieces) 
-     if(t > 1){
-       private.info.matrix[,,t][orig.contrib.matrix[,,t-1]==0]<-NA
-      }
 
-    all.private.info = data.table(melt(private.info.matrix))
+    private.info.matrix[,,t]<- do.call(rbind,info.pieces) 
+    
+    ### if new informaiton is passed out at every time t, this ensures that new information only goes to people in the group
+     # if(t > 1){
+     #   private.info.matrix[,,t][orig.contrib.matrix[,,t-1]==0]<-NA
+     #  }
+
+    all.private.info = data.table(reshape2::melt(private.info.matrix))
     setnames(all.private.info,c('Var1','Var2'),c('Agent','Issue'))
     all.private.info = all.private.info[!is.na(value),]
     all.private.info[,r:=rank(-Var3),by=.(Agent,Issue)]
     all.private.info = all.private.info[r %in% 1:3,]
-    pim = dcast( all.private.info[,mean(value,na.rm = T),by=.(Agent,Issue)],Agent~Issue,value.var = 'V1')
-    pim[,Agent:=NULL]
-    shared.info.matrix[,,t] =  as.matrix(pim / sqrt(incentive.matrix[,,t]))
     
-    cgr.info = pim / sqrt(principled.engagement.matrix[,,t])
+    summary(all.private.info$value)
+    
+    
+    pim = dcast( all.private.info[,mean(value,na.rm = T),by=.(Agent,Issue)],Agent~Issue,value.var = 'V1')
+    pim = data.table(pim)
+    pim[,Agent:=NULL]
 
- all.shared.info = data.table(melt(shared.info.matrix[,,t]))
+    
+    shared.info.matrix[,,t] =  as.matrix(pim / {1/sqrt(incentive.matrix[,,t])})
+ 
+    all.shared.info = data.table(reshape2::melt(shared.info.matrix[,,t]))
     setnames(all.shared.info,c('Var1','Var2'),c('Sharing.Agent','Issue'))
     all.shared.info = all.shared.info[,mean(value,na.rm = T),by=.(Sharing.Agent,Issue)]
     agent.edges = data.table(agent.edges)
@@ -130,19 +143,18 @@ EmersonScottModel = function(simulation.control = NULL,debug = F) {
     
     #agent.private.info.t = pim#dcast(all.private.info[,mean(value,na.rm = T),by=.(Agent,Issue)],Agent ~ Issue,value.var = 'V1')
 
-    cgr.payout.estimates = colMeans(cgr.info[cgr$agents,])
-    info.in.cgr = as.matrix((pim + personal.network.info.t + cgr.payout.estimates)/3)
+    cgr.payout.estimates = colMeans(shared.info.matrix[cgr$agents,,t])
+    info.in.cgr = as.matrix((pim + personal.network.info.t + do.call(rbind,replicate(length(agents),cgr.payout.estimates,simplify = F)))/3)
     info.out.cgr = as.matrix((pim + personal.network.info.t)/2)
-  
     operating.info = do.call(rbind,lapply(seq(length(agents)),function(a) {if(a %in% cgr$agents){info.in.cgr[a,]}else{info.out.cgr[a,]}}))
-    agent.best.guesses = operating.info
+    agent.best.guesses[,,t] = operating.info
    # agent.issue.knowledge.pieces = lapply(info.pieces,function(x) colSums(!is.na(x),na.rm = T))
   #  agent.binary.issue.knowledge = lapply(info.pieces,function(x) (colSums(!is.na(x),na.rm = T)>0)+0)
     
     draws = do.call(rbind,lapply(seq_along(agents),function(a) 
       rbinom(n = simulation.control$n_issues,size = 1,prob = incentive.matrix[a,,t])))
   
-    ctbs = incentive.matrix[,,t] * issue.matrix[,,t] * agent.best.guesses  * draws
+    ctbs = incentive.matrix[,,t] * issue.matrix[,,t] * agent.best.guesses[,,t]  * draws
     orig.contrib.matrix[,,t] <-  as.matrix(ctbs)
     orig.contrib.matrix[,,t][is.na(orig.contrib.matrix[,,t])]<-0
     
@@ -150,8 +162,10 @@ EmersonScottModel = function(simulation.control = NULL,debug = F) {
     original.contrib = orig.contrib.matrix[cgr$agents,cgr$issues,t]
     
     #calculate capacity for joint action at time t, used as basis for reallocation
-    cgr.contribs = (original.contrib * (1 - colMeans(joint.action.matrix[cgr$agents,cgr$issues,t]))) + cgr.reallocate.contrib *colMeans(joint.action.matrix[cgr$agents,cgr$issues,t])
+    cgr.contribs = (original.contrib * (1 - colMeans(incentive.matrix[cgr$agents,cgr$issues,t]))) + cgr.reallocate.contrib *colMeans(incentive.matrix[cgr$agents,cgr$issues,t])
     
+    
+
      #cgr reallocated contribs
     contrib.matrix[,,t] <- orig.contrib.matrix[,,t]
     contrib.matrix[cgr$agents,cgr$issues,t] <- cgr.contribs
@@ -160,26 +174,52 @@ EmersonScottModel = function(simulation.control = NULL,debug = F) {
     split.by.issue.t = payoff.by.issue.t/colSums(issue.matrix[,,t])
     
     payout.matrix[,,t] = matrix(rep(split.by.issue.t,each = length(agents)),byrow=F,nrow = length(agents)) * issue.matrix[,,t]
-    reciprocity.matrix[,,t] = contrib.matrix[,,t] * agent.best.guesses * incentive.matrix[,,t] < payout.matrix[,,t]
+    reciprocity.matrix[,,t] = contrib.matrix[,,t] * agent.best.guesses[,,t] * incentive.matrix[,,t] < payout.matrix[,,t]
     contributors.matrix[,,t] <- colSums(orig.contrib.matrix[,,t]>0,na.rm=T)
     
-    cgr.reciprocity = rowSums(contrib.matrix[cgr$agents,cgr$issues,t] * agent.best.guesses[cgr$agents,cgr$issues] * incentive.matrix[cgr$agents,cgr$issues,t]) < rowSums(payout.matrix[cgr$agents,cgr$issues,t])
+    cgr.reciprocity = rowSums(contrib.matrix[cgr$agents,cgr$issues,t] * agent.best.guesses[cgr$agents,cgr$issues,t] * incentive.matrix[cgr$agents,cgr$issues,t]) < rowSums(payout.matrix[cgr$agents,cgr$issues,t])
     reciprocity.matrix[cgr$agents,cgr$issues,t] <- cgr.reciprocity
     
-    cgr.better = rowSums(original.contrib * agent.best.guesses[cgr$agents,cgr$issues] * incentive.matrix[cgr$agents,cgr$issues,t]) < 
-      rowSums(contrib.matrix[cgr$agents,cgr$issues,t] * agent.best.guesses[cgr$agents,cgr$issues] * incentive.matrix[cgr$agents,cgr$issues,t])
+    cgr.better = rowSums(original.contrib * agent.best.guesses[cgr$agents,cgr$issues,t] * incentive.matrix[cgr$agents,cgr$issues,t]) < 
+      rowSums(contrib.matrix[cgr$agents,cgr$issues,t] * agent.best.guesses[cgr$agents,cgr$issues,t] * incentive.matrix[cgr$agents,cgr$issues,t])
     #joint.action.matrix[cgr$agents,cgr$issues,t] <- cgr.better
     
-    dynamics.tracker$shared.motivation[t] <- mean(reciprocity.matrix[cgr$agents,cgr$issues,t])
-    dynamics.tracker$capacity.for.joint.action[t] <- mean(joint.action.matrix[cgr$agents,cgr$issues,t])
-    pe <- min(sum(incentive.matrix[cgr$agents,cgr$issues,t]*issue.matrix[cgr$agents,cgr$issues,t])/sum(orig.contrib.matrix[cgr$agents,cgr$issues,t]>0),1)
-    dynamics.tracker$principled.engagement[t] <-  mean(principled.engagement.matrix[,,t])
+   
+    #principled engagement: delta between group information and network information
+
+    cgr.error = sum((agent.best.guesses[cgr$agents,cgr$issues,t] - true.matrix[cgr$agents,cgr$issues])^2) / length(true.matrix[cgr$agents,cgr$issues])
+
+    #network.error = sum((agent.best.guesses[,cgr$issues,t] - true.matrix)^2) / length(true.matrix)
+    #network.error = sum((info.out.cgr[cgr$agents,cgr$issues] - true.matrix)^2) / length(true.matrix)
+    dynamics.tracker$principled.engagement[t] <- cgr.error #- network.error
+  
+    ### issue alignment is cosine similarity of 1/0 issue matrix
+    issue_cosim = cosine(t(issue.matrix[cgr$agents,cgr$issues,t]))
+    dynamics.tracker$issue.alignment[t] <-  mean(issue_cosim[upper.tri(issue_cosim)])
+    
+    #shared motivation: variance in total contributions
+    dynamics.tracker$shared.motivation[t] <- var(c(contrib.matrix[cgr$agents,cgr$issues,t]))
+    
+      
+    #capacity for joint action is difference between payout generated with and without reallocation  -- i.e., value creation
+    cgr.reallocate.payout = sum(original.contrib * agent.best.guesses[cgr$agents,cgr$issues,t] * incentive.matrix[cgr$agents,cgr$issues,t]) 
+    no.reallocate.payout = sum(contrib.matrix[cgr$agents,cgr$issues,t] * agent.best.guesses[cgr$agents,cgr$issues,t] * incentive.matrix[cgr$agents,cgr$issues,t])
+    dynamics.tracker$capacity.for.joint.action[t] <- cgr.reallocate.payout - no.reallocate.payout
+    
+   # pe <- min(sum(incentive.matrix[cgr$agents,cgr$issues,t]*issue.matrix[cgr$agents,cgr$issues,t])/sum(orig.contrib.matrix[cgr$agents,cgr$issues,t]>0),1)
+    
+
+    
+    
+    
      recip = Reduce('+',lapply(max(1,t-3):max(1,t),function(x) (reciprocity.matrix[,,x]+0)))/t
+     
+     
     if(t < simulation.control$t){
       issue.matrix[,,t+1] <- issue.matrix[,,t]
       incentive.matrix[,,t+1]<- incentive.matrix[,,t] * simulation.control$beta + simulation.control$alpha * recip
-      principled.engagement.matrix[,,t+1] <- principled.engagement.matrix[,,t] * simulation.control$beta + simulation.control$alpha * pe
-      joint.action.matrix[cgr$agents,cgr$issues,t+1] <- joint.action.matrix[cgr$agents,cgr$issues,t] * simulation.control$beta + simulation.control$alpha * mean(cgr.better)
+      #principled.engagement.matrix[,,t+1] <- principled.engagement.matrix[,,t] * simulation.control$beta + simulation.control$alpha * pe
+      #joint.action.matrix[cgr$agents,cgr$issues,t+1] <- joint.action.matrix[cgr$agents,cgr$issues,t] * simulation.control$beta + simulation.control$alpha * mean(cgr.better)
     }
 
     if(t == simulation.control$perturb.time&!is.null(simulation.control$perturb.type)){
@@ -209,8 +249,15 @@ EmersonScottModel = function(simulation.control = NULL,debug = F) {
               'starting.incentive'=summary(incentive.matrix[,1,1])))}
   if(debug){
     return(list('incentive.matrix' = incentive.matrix,'cgr' = cgr,'mults' = true.values,
-  'joint.action' = joint.action.matrix,'principled.engagement' = principled.engagement.matrix,
+  #'joint.action' = joint.action.matrix,'principled.engagement' = principled.engagement.matrix,
   'contribs' = contrib.matrix, 'payouts' = payout.matrix, 'sim' = simulation.control))}
 
 }
+
+
+
+agent.best.guesses[,,1]
+agent.best.guesses[,,50]
+
+
 
