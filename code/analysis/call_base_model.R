@@ -5,16 +5,16 @@ source('code/model/emersonscott_model.R')
 require(parallel)
 require(doParallel)
 
-cores = floor(detectCores() / 1.2)
+cores = floor(detectCores() / 1.1)
 cl = makeCluster(cores)
-reps = 1e3
+reps = 5e3
 registerDoParallel(cl)
 
 clusterEvalQ(cl,expr =  source('code/model/emersonscott_model.R'))
 
 incentive.set = list(c(0.1,0.5),c(0.3,0.7),c(0.5,0.9),c(0.1,0.9))
 
-res = foreach(i = 1:reps) %do% {
+res = foreach(i = 1:reps) %dopar% {
   simulation.control = list(stakeholders = 50,regulators = 0, convenors = 0 ,
                             incentive.range  = runif(n = 1,min = 0.1,max = 0.9),
                            # skill.set = runif(1,0.1,0.9),
