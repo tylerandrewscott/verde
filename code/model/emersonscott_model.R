@@ -191,14 +191,14 @@ EmersonScottModel = function(simulation.control = NULL,debug = F) {
 
     #network.error = sum((agent.best.guesses[,cgr$issues,t] - true.matrix)^2) / length(true.matrix)
     #network.error = sum((info.out.cgr[cgr$agents,cgr$issues] - true.matrix)^2) / length(true.matrix)
-    dynamics.tracker$principled.engagement[t] <- cgr.error #- network.error
+    dynamics.tracker$principled.engagement[t] <- 1/cgr.error #- network.error
   
     ### issue alignment is cosine similarity of 1/0 issue matrix
     issue_cosim = cosine(t(issue.matrix[cgr$agents,cgr$issues,t]))
     dynamics.tracker$issue.alignment[t] <-  mean(issue_cosim[upper.tri(issue_cosim)])
     
     #shared motivation: variance in total contributions
-    dynamics.tracker$shared.motivation[t] <- var(c(contrib.matrix[cgr$agents,cgr$issues,t]))
+    dynamics.tracker$shared.motivation[t] <- 1/var(c(colSums(contrib.matrix[cgr$agents,cgr$issues,t])))
     
       
     #capacity for joint action is difference between payout generated with and without reallocation  -- i.e., value creation
@@ -255,9 +255,6 @@ EmersonScottModel = function(simulation.control = NULL,debug = F) {
 }
 
 
-
-agent.best.guesses[,,1]
-agent.best.guesses[,,50]
 
 
 

@@ -1,6 +1,6 @@
 
 list.files('../bucket_mount/verde_scratch/')
-base = readRDS('scratch/test_baserun.50reps.RDS')
+base = readRDS('scratch/test_baserun.5000reps.RDS')
 #base = c(base1,base2)
 require(tidyverse)
 require(data.table)
@@ -14,10 +14,10 @@ quietly(lapply(seq_along(dyn_dt_list),function(x) {dyn_dt_list[[x]]$i <<- x; dyn
 dyn_dt = rbindlist(dyn_dt_list)
 
 ggplot(data = dyn_dt) + 
-#  geom_path(aes(x = t,y = principled.engagement,group = i),lwd = 0.2,alpha = 0.5) 
+  geom_path(aes(x = t,y = principled.engagement,group = i),lwd = 0.2,alpha = 0.5) 
 
- #geom_path(aes(x = t,y = issue.alignment,group = i),lwd = 0.2,alpha = 0.5) 
-#  geom_path(aes(x = t,y = capacity.for.joint.action,group = i),lwd = 0.2,alpha = 0.5)
+geom_path(aes(x = t,y = issue.alignment,group = i),lwd = 0.2,alpha = 0.5) 
+ geom_path(aes(x = t,y = capacity.for.joint.action,group = i),lwd = 0.2,alpha = 0.5)
 geom_path(aes(x = t,y = shared.motivation,group = i),lwd = 0.2,alpha = 0.5)
 
 ggplot() + geom_path(aes(x = seq_along(base[[1]]$dynamics$principled.engagement),
@@ -145,7 +145,7 @@ setnames(dyn.avg,c('V1','V2','V3'),c('principled.engagement','capacity.for.joint
 
 
 
-g = ggplot(dyn_all[t==1,],aes(col = log(total.payout))) + theme_bw() + 
+g = ggplot(dyn_all[t==max(t),],aes(col = log(total.payout))) + theme_bw() + 
   scale_color_viridis_c(option = 'C',direction = -1) + 
   #scale_y_continuous(limits = c(0,1)) +
  # scale_x_continuous(limits = c(0,1)) +
@@ -201,7 +201,9 @@ grid.arrange(g1+theme(legend.position='hidden'), g2+theme(legend.position='hidde
              top = "Starting and finishing collaborative dynamics, 2-way combinations")
 
 
-
+plot(dyn_all$t,dyn_all$capacity.for.joint.action)
+plot(dyn_all$t,dyn_all$principled.engagement)
+plot(dyn_all$t,dyn_all$principled.engagement)
 
 require(plotly)
 require(viridis)
@@ -216,8 +218,8 @@ fig <- fig %>% layout(scene = list(xaxis = list(title = 'principled engagement')
                                    yaxis = list(title = 'Capacity for joint action'),
                                    zaxis = list(title = 'Shared motivation')))
 
-fig
-fig2 <- plot_ly(dyn_all[iter%in%2,], 
+
+fig2 <- plot_ly(dyn_all[iter%in%4,], 
                x = ~principled.engagement, y = ~capacity.for.joint.action, color = ~t,
                z = ~shared.motivation, type = 'scatter3d',mode = 'lines',showlegend = F)
 fig2 %>% layout(
